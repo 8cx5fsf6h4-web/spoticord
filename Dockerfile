@@ -13,6 +13,7 @@ FROM --platform=linux/amd64 rust:1.80.1-slim AS builder
 WORKDIR /app
 
 # Add extra build dependencies here
+# pkg-config, libasound2-dev, and libssl-dev are required for audio and networking crates
 RUN apt-get update && apt install -yqq \
     cmake gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libpq-dev curl bzip2 \
     pkg-config libasound2-dev libssl-dev
@@ -31,7 +32,7 @@ COPY . .
 RUN rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
 
 # Add `--no-default-features` if you don't want stats collection
-# FIX: Added unique IDs prefixed with 'cache:' for Railway compatibility
+# FIX: Added unique IDs prefixed with 'cache:' as required by Railway
 RUN --mount=type=cache,id=cache:spoticord-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=cache:spoticord-target,target=/app/target \
     cargo build --release --target=x86_64-unknown-linux-gnu && \
