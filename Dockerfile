@@ -4,7 +4,7 @@ FROM --platform=linux/amd64 rust:1.80.1-slim AS builder
 WORKDIR /app
 
 # Install build dependencies
-# pkg-config, libasound2-dev, and libssl-dev are required for audio and networking crates
+# Added pkg-config, libasound2-dev, and libssl-dev for audio/SSL support
 RUN apt-get update && apt install -yqq \
     cmake gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libpq-dev curl bzip2 \
     pkg-config libasound2-dev libssl-dev
@@ -22,7 +22,7 @@ COPY . .
 
 RUN rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
 
-# BUILD SECTION: Cache mounts disabled to fix Railway build errors
+# BUILD: Cache mounts are removed to bypass Railway validation errors
 RUN PQ_LIB_DIR=/usr/lib/x86_64-linux-gnu cargo build --release --target=x86_64-unknown-linux-gnu && \
     RUSTFLAGS="-L /app/postgresql-${PGVER}/src/interfaces/libpq -C linker=aarch64-linux-gnu-gcc" \
     cargo build --release --target=aarch64-unknown-linux-gnu && \
