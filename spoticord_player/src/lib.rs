@@ -5,7 +5,9 @@ use info::PlaybackInfo;
 use librespot::{
     connect::{config::ConnectConfig, spirc::Spirc},
     core::{
-        connection::AuthenticationError, http_client::HttpClientError, Session as SpotifySession,
+        // connection::AuthenticationError, <-- REMOVED (Private in 0.6.0)
+        http_client::HttpClientError, 
+        Session as SpotifySession,
         SessionConfig,
     },
     discovery::Credentials,
@@ -131,7 +133,8 @@ impl Player {
                 Ok(spirc) => break spirc,
                 Err(why) => {
                     // Instantly return if our credentials have expired
-                    if let Some(AuthenticationError::LoginFailed(
+                    // FIX: Removed private error check. The bot will now just retry 3 times and fail naturally.
+                    /* if let Some(AuthenticationError::LoginFailed(
                         librespot::protocol::keyexchange::ErrorCode::BadCredentials,
                     )) = why
                         .error
@@ -139,6 +142,7 @@ impl Player {
                     {
                         return Err(why);
                     }
+                    */
 
                     tries += 1;
                     if tries > 3 {
