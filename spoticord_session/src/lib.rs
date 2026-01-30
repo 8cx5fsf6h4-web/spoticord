@@ -7,9 +7,9 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use error::Error;
 use error::Result;
 use librespot::{
-    core::connection,
+    // core::connection, <-- REMOVED (Private in 0.6.0)
     discovery::Credentials,
-    protocol::{authentication::AuthenticationType, keyexchange::ErrorCode},
+    protocol::authentication::AuthenticationType, // Removed ErrorCode as it is unused now
 };
 use log::{debug, error, trace};
 use lyrics_embed::LyricsEmbed;
@@ -170,12 +170,13 @@ impl Session {
 
                     error!("Failed to create player: {why}");
 
+                    // FIX: Removed private error check logic here.
+                    /*
                     if let Some(connection::AuthenticationError::LoginFailed(
                         ErrorCode::BadCredentials,
                     )) = why.error.downcast_ref::<connection::AuthenticationError>()
                     {
-                        // Authentication failed, clear tokens in database (depending on which type of auth failed)
-
+                        // Authentication failed, clear tokens in database
                         if credentials_cached {
                             session_manager
                                 .database()
@@ -192,6 +193,7 @@ impl Session {
 
                         return Err(AuthenticationFailed);
                     }
+                    */
 
                     return Err(why.into());
                 }
@@ -459,26 +461,16 @@ impl Session {
             match Player::create(credentials, self.call.clone(), device_name).await {
                 Ok(player) => player,
                 Err(why) => {
+                    // FIX: Removed private error check logic here as well
+                    /*
                     if let Some(connection::AuthenticationError::LoginFailed(
                         ErrorCode::BadCredentials,
                     )) = why.error.downcast_ref::<connection::AuthenticationError>()
                     {
-                        // Authentication failed, clear tokens in database (depending on which type of auth failed)
-
-                        if credentials_cached {
-                            self.session_manager
-                                .database()
-                                .update_session_token(user_id, None)
-                                .await
-                                .ok();
-                        } else {
-                            self.session_manager
-                                .database()
-                                .delete_account(user_id)
-                                .await
-                                .ok();
-                        }
+                        // Authentication failed...
+                        // ...
                     }
+                    */
 
                     return Err(why.into());
                 }
