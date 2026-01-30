@@ -1,24 +1,15 @@
-# This Dockerfile has been specifically crafted to be run on an AMD64 build host, where
-# the build should compile for both amd64 and arm64 targets
-#
-# Building on any other platform, or building for only a single target will be significantly
-# slower compared to a platform agnostic Dockerfile, or might not work at all
-#
-# This has been done to make this file be optimized for use within GitHub Actions,
-# as using QEMU to compile takes way too long (multiple hours)
-
-# Builder
+# Optimized for AMD64 build host cross-compiling for amd64 and arm64 targets
 FROM --platform=linux/amd64 rust:1.80.1-slim AS builder
 
 WORKDIR /app
 
-# Add extra build dependencies here
-# pkg-config, libasound2-dev, and libssl-dev are required for audio and networking crates
+# Install build dependencies
+# pkg-config, libasound2-dev, and libssl-dev are needed for audio/SSL crates
 RUN apt-get update && apt install -yqq \
     cmake gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libpq-dev curl bzip2 \
     pkg-config libasound2-dev libssl-dev
 
-# Manually compile an arm64 build of libpq
+# Manually compile an arm64 build of libpq for cross-compilation
 ENV PGVER=16.4
 RUN curl -o postgresql.tar.bz2 https://ftp.postgresql.org/pub/source/v${PGVER}/postgresql-${PGVER}.tar.bz2 && \
     tar xjf postgresql.tar.bz2 && \
@@ -31,38 +22,34 @@ COPY . .
 
 RUN rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
 
-# Add `--no-default-features` if you don't want stats collection
-# FIX: Added unique IDs prefixed with 'cache:' as required by Railway
+# FIX: Added 'cache:' prefix to IDs as required by Railway
 RUN --mount=type=cache,id=cache:spoticord-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=cache:spoticord-target,target=/app/target \
     cargo build --release --target=x86_64-unknown-linux-gnu && \
     RUSTFLAGS="-L /app/postgresql-${PGVER}/src/interfaces/libpq -C linker=aarch64-linux-gnu-gcc" \
     cargo build --release --target=aarch64-unknown-linux-gnu && \
-    # Copy the executables outside of /target as it'll get unmounted after this RUN command
+    # Copy binaries out of /target before the cache mount is detached
     cp /app/target/x86_64-unknown-linux-gnu/release/spoticord /app/x86_64 && \
     cp /app/target/aarch64-unknown-linux-gnu/release/spoticord /app/aarch64
 
-# Runtime
+# Runtime Stage
 FROM debian:bookworm-slim
 
 ARG TARGETPLATFORM
 ENV TARGETPLATFORM=${TARGETPLATFORM}
 
-# Add extra runtime dependencies here
 RUN apt update && apt install -y ca-certificates libpq-dev
 
-# Copy spoticord binaries from builder to /tmp so we can dynamically use them
 COPY --from=builder /app/x86_64 /tmp/x86_64
 COPY --from=builder /app/aarch64 /tmp/aarch64
 
-# Copy appropriate binary for target arch from /tmp
+# Deploy the correct binary based on Railway's current platform
 RUN if [ "${TARGETPLATFORM}" = "linux/amd64" ]; then \
     cp /tmp/x86_64 /usr/local/bin/spoticord; \
     elif [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
     cp /tmp/aarch64 /usr/local/bin/spoticord; \
     fi
 
-# Delete unused binaries
 RUN rm -rvf /tmp/x86_64 /tmp/aarch64
 
 ENTRYPOINT [ "/usr/local/bin/spoticord" ]
