@@ -13,7 +13,6 @@ FROM --platform=linux/amd64 rust:1.80.1-slim AS builder
 WORKDIR /app
 
 # Add extra build dependencies here
-# Added pkg-config, libasound2-dev, and libssl-dev to support audio and networking crates
 RUN apt-get update && apt install -yqq \
     cmake gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libpq-dev curl bzip2 \
     pkg-config libasound2-dev libssl-dev
@@ -32,9 +31,9 @@ COPY . .
 RUN rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
 
 # Add `--no-default-features` if you don't want stats collection
-# FIX: Added unique IDs for Railway cache compatibility
-RUN --mount=type=cache,id=spoticord-cargo-registry,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=spoticord-cargo-target,target=/app/target \
+# FIX: Added unique IDs prefixed with 'cache:' for Railway compatibility
+RUN --mount=type=cache,id=cache:spoticord-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cache:spoticord-target,target=/app/target \
     cargo build --release --target=x86_64-unknown-linux-gnu && \
     RUSTFLAGS="-L /app/postgresql-${PGVER}/src/interfaces/libpq -C linker=aarch64-linux-gnu-gcc" \
     cargo build --release --target=aarch64-unknown-linux-gnu && \
